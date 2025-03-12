@@ -163,3 +163,4 @@ cython_debug/
 *.csv
 /bert_sentiment_model
 /bert_results
+/bert_sentiment_model_backup

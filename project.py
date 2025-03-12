@@ -289,11 +289,11 @@ if train_model:
 
     print("BERT:\n", classification_report(y_test, y_preds))
 
-    model.save_pretrained("bert_sentiment_model")
-    tokenizer.save_pretrained("bert_sentiment_model")
+    model.save_pretrained(model_path)
+    tokenizer.save_pretrained(model_path)
 
-model = BertForSequenceClassification.from_pretrained("bert_sentiment_model")
-tokenizer = BertTokenizer.from_pretrained("bert_sentiment_model")
+model = BertForSequenceClassification.from_pretrained(model_path)
+tokenizer = BertTokenizer.from_pretrained(model_path)
 
 # Prepare Dataset
 test_dataset = SentimentDataset(X_test.tolist(), y_test.tolist(), tokenizer)
@@ -349,4 +349,3 @@ plt.title("Monthly Sentiment Trends (BERT)")
 plt.xticks(rotation=45)
 plt.grid()
 plt.show()
-
