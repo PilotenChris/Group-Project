@@ -348,7 +348,7 @@ print(f"BERT Accuracy: {bert_accuracy:.4f}")
 print(f"BERT Classification Report:\n", classification_report(y_test, y_pred_bert))
 print(f"BERT Confusion Matrix:\n", confusion_matrix(y_test, y_pred_bert))
 
-# Remove augmented data
+# Save cleaned sentiment dataset to csv file
 social_media_analysis_df.to_csv("cleaned_sentiment_dataset.csv", index=False)
 
 # Sentiment trend analysis using BERT
