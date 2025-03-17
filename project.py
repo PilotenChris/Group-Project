@@ -17,6 +17,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from transformers import BertTokenizer, BertForSequenceClassification
+nltk.download('punkt_tab')  
 from transformers import Trainer, TrainingArguments
 from torch.utils.data import Dataset, DataLoader
 from deep_translator import GoogleTranslator
@@ -31,7 +32,9 @@ nltk.download("punkt")
 model_path = "bert_sentiment_model"
 train_model = True
 
-# Load dataset and show the first few rows
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+# Load dataset
 social_media_data_df = pd.read_csv("sentimentdataset.csv")
 print(social_media_data_df.head())
 
@@ -84,10 +87,10 @@ def clean_text(text: str) -> str:
     text = re.sub(r"https?://\S+|www\.\S+", "", text)
     text = re.sub(r"[^a-zA-Z\s]", "", text)
     text = re.sub(r"\s+", " ", text.strip())
-    text = re.sub("\[.*?\]", "", text)
+    text = re.sub(r"\[.*?\]", "", text)
     text = re.sub("<.*?>+", "", text)
     text = re.sub("\n", "", text)
-    text = re.sub("\w*\d\w*", "", text)
+    text = re.sub(r"\w*\d\w*", "", text)
     text = re.sub(r"[^\x00-\x7F]+", "", text)
     text = text.translate(str.maketrans("", "", string.punctuation))
     text = " ".join(text.split())
@@ -325,6 +328,7 @@ print(f"BERT Confusion Matrix:\n",
 
 # Remove augmented data
 social_media_analysis_df = social_media_analysis_df.dropna(subset=["User"])
+social_media_analysis_df.to_csv("cleaned_sentiment_dataset.csv", index=False)
 
 # Sentiment trend analysis using BERT
 plt.figure(figsize=(12, 6))
