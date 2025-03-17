@@ -106,6 +106,7 @@ print("Clean text: ", social_media_data_df.head())
 
 # EDA
 social_media_analysis_df = social_media_data_df.copy()
+social_media_train_df = social_media_data_df.copy()
 
 # Sentiment Analysis using VADER
 sia = SentimentIntensityAnalyzer()
@@ -124,6 +125,7 @@ def classify_message_vader(text: str) -> float:
 
 # Apply sentiment classification
 social_media_analysis_df["Sentiment"] = social_media_analysis_df.Text.apply(classify_message_vader)
+social_media_train_df["Sentiment"] = social_media_train_df.Text.apply(classify_message_vader)
 print("Sentiment:", social_media_analysis_df.Sentiment)
 
 
@@ -138,26 +140,26 @@ def back_translate(text: str, src: str = "en", target: str = "de") -> str:
 
 
 # Apply back-translate augmentation to Neutral Sentences
-neutral_texts = social_media_analysis_df[social_media_analysis_df.Sentiment == 1]["Text"].copy()
+neutral_texts = social_media_train_df[social_media_train_df.Sentiment == 1]["Text"].copy()
 augmented_texts = set()
 augmented_clean_texts = set()
 
 for text in neutral_texts:
     back_translated_text = back_translate(text)
-    if back_translated_text not in social_media_analysis_df.Text.tolist():
+    if back_translated_text not in social_media_train_df.Text.tolist():
         cleaned_text = clean_text(back_translated_text)
         augmented_texts.add(back_translated_text)
         augmented_clean_texts.add(cleaned_text)
 
 # Append back-translated augmented data
-augmented_df = social_media_analysis_df[social_media_analysis_df.Sentiment == 1].copy()
+augmented_df = social_media_train_df[social_media_train_df.Sentiment == 1].copy()
 augmented_df = augmented_df.iloc[:len(list(augmented_texts))]
 
 augmented_df["Clean_Text"] = list(augmented_clean_texts)
 augmented_df["Text"] = list(augmented_texts)
 augmented_df["User"] = np.nan
 
-social_media_analysis_df = pd.concat([social_media_analysis_df, augmented_df], ignore_index=True)
+social_media_train_df = pd.concat([social_media_train_df, augmented_df], ignore_index=True)
 
 
 # Synonym Replacement Augmentation
@@ -174,15 +176,15 @@ def synonym_replacement(text: str, n=1) -> str:
 
 
 # Apply synonym replacement on Neutral and Negative Sentences
-neutral_syn_texts = social_media_analysis_df[social_media_analysis_df.Sentiment == 1]["Text"].copy()
-negative_syn_texts = social_media_analysis_df[social_media_analysis_df.Sentiment == 0]["Text"].copy()
+neutral_syn_texts = social_media_train_df[social_media_train_df.Sentiment == 1]["Text"].copy()
+negative_syn_texts = social_media_train_df[social_media_train_df.Sentiment == 0]["Text"].copy()
 
 neu_syn_aug_texts = neutral_syn_texts.apply(lambda x: synonym_replacement(x, n=2))
 neg_syn_aug_texts = negative_syn_texts.apply(lambda x: synonym_replacement(x, n=2))
 
 # Append synonym augmented data
-neu_syn_aug_df = social_media_analysis_df[social_media_analysis_df.Sentiment == 1].copy()
-neg_syn_aug_df = social_media_analysis_df[social_media_analysis_df.Sentiment == 0].copy()
+neu_syn_aug_df = social_media_train_df[social_media_train_df.Sentiment == 1].copy()
+neg_syn_aug_df = social_media_train_df[social_media_train_df.Sentiment == 0].copy()
 
 neu_syn_aug_df["Clean_Text"] = neu_syn_aug_texts.apply(clean_text)
 neu_syn_aug_df["Text"] = neu_syn_aug_texts
@@ -192,12 +194,12 @@ neg_syn_aug_df["Clean_Text"] = neg_syn_aug_texts.apply(clean_text)
 neg_syn_aug_df["Text"] = neg_syn_aug_texts
 neg_syn_aug_df["User"] = np.nan
 
-social_media_analysis_df = pd.concat([social_media_analysis_df, neu_syn_aug_df], ignore_index=True)
-social_media_analysis_df = pd.concat([social_media_analysis_df, neg_syn_aug_df], ignore_index=True)
+social_media_train_df = pd.concat([social_media_train_df, neu_syn_aug_df], ignore_index=True)
+social_media_train_df = pd.concat([social_media_train_df, neg_syn_aug_df], ignore_index=True)
 
 # Prepare dataset for ML
-X = social_media_analysis_df.Clean_Text
-y = social_media_analysis_df.Sentiment
+X = social_media_train_df.Clean_Text
+y = social_media_train_df.Sentiment
 
 # Split dataset into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -316,18 +318,37 @@ def predict_bert(model, dataloader):
     return predictions
 
 
-social_media_analysis_df.loc[X_test.index, "Sentiment_bert"] = predict_bert(model, test_dataloader)
+# Predict Sentiment using BERT Model
+def predict_bert_sentiment(model, tokenizer, texts):
+    model.eval()
+    predictions = []
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    with torch.no_grad():
+        for text in texts:
+            encoding = tokenizer(
+                text, truncation=True, padding="max_length", max_length=512, return_tensors="pt"
+            )
+            input_ids = encoding["input_ids"].to(device)
+            attention_mask = encoding["attention_mask"].to(device)
+
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+            preds = torch.argmax(outputs.logits, dim=1)
+            predictions.append(preds.cpu().numpy()[0])
+    return predictions
+
+
+social_media_analysis_df["Sentiment_bert"] = predict_bert_sentiment(model, tokenizer, social_media_analysis_df.Clean_Text.tolist())
 
 # Evaluate BERT Model
-bert_accuracy = accuracy_score(y_test, social_media_analysis_df.loc[X_test.index, "Sentiment_bert"])
+y_pred_bert = predict_bert(model, test_dataloader)
+bert_accuracy = accuracy_score(y_test, y_pred_bert)
 print(f"BERT Accuracy: {bert_accuracy:.4f}")
-print(f"BERT Classification Report:\n",
-      classification_report(y_test, social_media_analysis_df.loc[X_test.index, "Sentiment_bert"]))
-print(f"BERT Confusion Matrix:\n",
-      confusion_matrix(y_test, social_media_analysis_df.loc[X_test.index, "Sentiment_bert"]))
+print(f"BERT Classification Report:\n", classification_report(y_test, y_pred_bert))
+print(f"BERT Confusion Matrix:\n", confusion_matrix(y_test, y_pred_bert))
 
 # Remove augmented data
-social_media_analysis_df = social_media_analysis_df.dropna(subset=["User"])
 social_media_analysis_df.to_csv("cleaned_sentiment_dataset.csv", index=False)
 
 # Sentiment trend analysis using BERT
