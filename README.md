@@ -14,7 +14,7 @@ Make sure the following files are in the same directory:
 - `project.py` *(Preprocessing, sentiment analysis, model training)*
 - `clustering.py` *(Topic clustering & visualization)*
 - `dashboard.py` *(Model performance comparison)*
-- `bert_sentiment_model` *(Our Pretrained BERT model - delete if you want to retrain the BERT model)*
+- `bert_sentiment_model` *(Our Pretrained BERT model - delete or rename if you want to retrain the BERT model)*
 
 ### Python Packages
 Install the required packages in your Conda environment using the commands below:
