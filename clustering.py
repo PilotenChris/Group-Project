@@ -17,7 +17,6 @@ os.chdir(script_dir)
 
 df = pd.read_csv("cleaned_sentiment_dataset.csv")
 
-
 # Verify required columns
 required_columns = ['Clean_Text', 'Timestamp']
 missing = [col for col in required_columns if col not in df.columns]
@@ -64,7 +63,7 @@ df['PC1'], df['PC2'] = X_pca[:, 0], X_pca[:, 1]
 
 plt.figure(figsize=(10, 6))
 sns.scatterplot(x='PC1', y='PC2', hue='Cluster', data=df,
-               palette='viridis', alpha=0.8, edgecolor='k')
+                palette='viridis', alpha=0.8, edgecolor='k')
 plt.title('2D Cluster Visualization (PCA)')
 plt.show()
 plt.close()  # Explicitly close the figure
@@ -73,8 +72,8 @@ plt.close()  # Explicitly close the figure
 for cluster in range(best_k):
     fig = plt.figure(figsize=(10, 5))
     cluster_text = ' '.join(df[df['Cluster'] == cluster]['Clean_Text'])
-    wordcloud = WordCloud(width=800, height=400, 
-                         background_color='white').generate(cluster_text)
+    wordcloud = WordCloud(width=800, height=400,
+                          background_color='white').generate(cluster_text)
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.title(f'Cluster {cluster} Keywords', fontsize=12)
     plt.axis('off')

@@ -8,15 +8,20 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 import torch
+import torch.nn as nn
+from transformers import BertModel
 from transformers import BertTokenizer, BertForSequenceClassification
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from wordcloud import WordCloud
+
+# Select GPU or CPU to run the BERT model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Getting paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(script_dir, "cleaned_sentiment_dataset.csv")
 clustered_path = os.path.join(script_dir, "clustered_data.csv")
-model_path = os.path.join(script_dir, "bert_sentiment_model") 
+model_path = os.path.join(script_dir, "bert_sentiment_model")
 
 # Load data
 df = pd.read_csv(csv_path)
@@ -38,10 +43,41 @@ y_pred_logreg = logreg.predict(X_test_tfidf)
 logreg_accuracy = accuracy_score(y_test, y_pred_logreg)
 print(f"Logistic Regression Accuracy: {logreg_accuracy:.4f}")
 
+
+# Custom BERT Classifier model
+class CustomBERTClassifier(nn.Module):
+    def __init__(self, num_labels=3):
+        super(CustomBERTClassifier, self).__init__()
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
+
+        # Custom classification with activation functions
+        self.classifier = nn.Sequential(
+            nn.Linear(768, 512),
+            nn.Tanh(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+            nn.SiLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_labels),
+        )
+
+        self.loss_fn = nn.CrossEntropyLoss()
+
+    def forward(self, input_ids, attention_mask, labels=None):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        logits = self.classifier(outputs.pooler_output)
+        if labels is not None:
+            loss = self.loss_fn(logits, labels)
+            return {"loss": loss, "logits": logits}
+        return {"logits": logits}
+
+
 # BERT Evaluation
 try:
+    model = CustomBERTClassifier(num_labels=3)
+    model.load_state_dict(torch.load(model_path + "/pytorch_model.bin"))
+    model.eval()
     tokenizer = BertTokenizer.from_pretrained(model_path)
-    model = BertForSequenceClassification.from_pretrained(model_path)
 except Exception as e:
     print(f"Error loading BERT model: {e}")
     print("Please ensure:")
@@ -49,11 +85,12 @@ except Exception as e:
     print("2. bert_sentiment_model directory exists with model files")
     exit()
 
-class SentimentDataset(torch.utils.data.Dataset):
-    def __init__(self, texts, labels, tokenizer, max_length=512):
+
+class SentimentDataset(Dataset):
+    def __init__(self, texts, labels, tokenizerSB, max_length=512):
         self.texts = texts
         self.labels = labels
-        self.tokenizer = tokenizer
+        self.tokenizer = tokenizerSB
         self.max_length = max_length
 
     def __len__(self):
@@ -72,19 +109,23 @@ class SentimentDataset(torch.utils.data.Dataset):
             "labels": torch.tensor(label, dtype=torch.long)
         }
 
+
 test_dataset = SentimentDataset(X_test.tolist(), y_test.tolist(), tokenizer)
 test_dataloader = DataLoader(test_dataset, batch_size=8)
+
 
 def predict_bert(model, dataloader):
     model.eval()
     predictions = []
+    model.to(device)
     with torch.no_grad():
         for batch in dataloader:
-            batch = {key: val.to(model.device) for key, val in batch.items()}
+            batch = {key: val.to(device) for key, val in batch.items()}
             outputs = model(**batch)
-            preds = torch.argmax(outputs.logits, dim=1)
+            preds = torch.argmax(outputs["logits"], dim=1)
             predictions.extend(preds.cpu().numpy())
     return predictions
+
 
 y_pred_bert = predict_bert(model, test_dataloader)
 bert_accuracy = accuracy_score(y_test, y_pred_bert)
@@ -98,12 +139,12 @@ metrics_df = pd.DataFrame({
 
 plt.figure(figsize=(10, 6))
 sns.barplot(
-    x='Model', 
-    y='Accuracy', 
-    data=metrics_df, 
-    hue='Model', 
-    palette='Blues', 
-    legend=False  
+    x='Model',
+    y='Accuracy',
+    data=metrics_df,
+    hue='Model',
+    palette='Blues',
+    legend=False
 )
 plt.title("Model Accuracy Comparison")
 plt.ylabel("Accuracy Score")

@@ -7,6 +7,7 @@ import string
 import random
 import nltk
 import torch
+import torch.nn as nn
 import matplotlib.pyplot as plt
 import seaborn as sns
 from nltk.corpus import stopwords, wordnet
@@ -17,12 +18,16 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from transformers import BertTokenizer, BertForSequenceClassification
-nltk.download('punkt_tab')  
+from transformers import BertModel
 from transformers import Trainer, TrainingArguments
 from torch.utils.data import Dataset, DataLoader
 from deep_translator import GoogleTranslator
 
+# Select GPU or CPU to run the BERT model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Download necessary NLTK resources
+nltk.download('punkt_tab')
 nltk.download("stopwords")
 nltk.download("vader_lexicon")
 nltk.download("wordnet")
@@ -231,9 +236,38 @@ print(f"Logistic Regression Accuracy: {logreg_accuracy:.4f}")
 print("Logistic Regression Classification Report: \n", classification_report(y_test, y_pred))
 print("Logistic Regression Confusion Matrix: \n", confusion_matrix(y_test, y_pred))
 
+
+# Custom BERT Classifier model
+class CustomBERTClassifier(nn.Module):
+    def __init__(self, num_labels=3):
+        super(CustomBERTClassifier, self).__init__()
+        self.bert = BertModel.from_pretrained("bert-base-uncased")
+
+        # Custom classification with activation functions
+        self.classifier = nn.Sequential(
+            nn.Linear(768, 512),
+            nn.Tanh(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+            nn.SiLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, num_labels),
+        )
+
+        self.loss_fn = nn.CrossEntropyLoss()
+
+    def forward(self, input_ids, attention_mask, labels=None):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        logits = self.classifier(outputs.pooler_output)
+        if labels is not None:
+            loss = self.loss_fn(logits, labels)
+            return {"loss": loss, "logits": logits}
+        return {"logits": logits}
+
+
 # Initialize BERT tokenizer and model
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=3)
+model = CustomBERTClassifier(num_labels=3)
 
 
 # Custom Dataset Class
@@ -294,10 +328,12 @@ if train_model:
 
     print("BERT:\n", classification_report(y_test, y_preds))
 
-    model.save_pretrained(model_path)
     tokenizer.save_pretrained(model_path)
+    torch.save(model.state_dict(), model_path + "/pytorch_model.bin")
 
-model = BertForSequenceClassification.from_pretrained(model_path)
+model = CustomBERTClassifier(num_labels=3)
+model.load_state_dict(torch.load(model_path + "/pytorch_model.bin"))
+model.eval()
 tokenizer = BertTokenizer.from_pretrained(model_path)
 
 # Prepare Dataset
@@ -309,11 +345,12 @@ test_dataloader = DataLoader(test_dataset, batch_size=8)
 def predict_bert(model, dataloader):
     model.eval()
     predictions = []
+    model.to(device)
     with torch.no_grad():
         for batch in dataloader:
-            batch = {key: val.to(model.device) for key, val in batch.items()}
+            batch = {key: val.to(device) for key, val in batch.items()}
             outputs = model(**batch)
-            preds = torch.argmax(outputs.logits, dim=1)
+            preds = torch.argmax(outputs["logits"], dim=1)
             predictions.extend(preds.cpu().numpy())
     return predictions
 
@@ -322,7 +359,6 @@ def predict_bert(model, dataloader):
 def predict_bert_sentiment(model, tokenizer, texts):
     model.eval()
     predictions = []
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     with torch.no_grad():
@@ -334,12 +370,13 @@ def predict_bert_sentiment(model, tokenizer, texts):
             attention_mask = encoding["attention_mask"].to(device)
 
             outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-            preds = torch.argmax(outputs.logits, dim=1)
+            preds = torch.argmax(outputs["logits"], dim=1)
             predictions.append(preds.cpu().numpy()[0])
     return predictions
 
 
-social_media_analysis_df["Sentiment_bert"] = predict_bert_sentiment(model, tokenizer, social_media_analysis_df.Clean_Text.tolist())
+social_media_analysis_df["Sentiment_bert"] = predict_bert_sentiment(model, tokenizer,
+                                                                    social_media_analysis_df.Clean_Text.tolist())
 
 # Evaluate BERT Model
 y_pred_bert = predict_bert(model, test_dataloader)
