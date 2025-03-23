@@ -149,4 +149,5 @@ sns.barplot(
 plt.title("Model Accuracy Comparison")
 plt.ylabel("Accuracy Score")
 plt.ylim(0, 1)
+plt.savefig("Model_Accuracy_Comparison.png")
 plt.show()

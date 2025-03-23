@@ -396,6 +396,7 @@ plt.ylabel("Average Sentiment Score")
 plt.title("Sentiment Trends Over Time (Bert)")
 plt.xticks(rotation=45)
 plt.grid()
+plt.savefig("Sentiment_Trends_Over_Time_Bert.png")
 plt.show()
 
 # Aggregate sentiment trends by month
@@ -410,4 +411,26 @@ plt.ylabel("Average Sentiment Score")
 plt.title("Monthly Sentiment Trends (BERT)")
 plt.xticks(rotation=45)
 plt.grid()
+plt.savefig("Monthly_Sentiment_Trends_Bert.png")
+plt.show()
+
+# --- Model Comparison Plot ---
+metrics_df = pd.DataFrame({
+    'Model': ['Logistic Regression', 'BERT'],
+    'Accuracy': [logreg_accuracy, bert_accuracy]
+})
+
+plt.figure(figsize=(10, 6))
+sns.barplot(
+    x='Model',
+    y='Accuracy',
+    data=metrics_df,
+    hue='Model',
+    palette='Blues',
+    legend=False
+)
+plt.title("Model Accuracy Comparison")
+plt.ylabel("Accuracy Score")
+plt.ylim(0, 1)
+plt.savefig("Model_Accuracy_Comparison.png")
 plt.show()

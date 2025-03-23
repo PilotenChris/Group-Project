@@ -46,6 +46,7 @@ ax1.set(title='Elbow Method', xlabel='Clusters', ylabel='Inertia')
 ax2.plot(cluster_range, silhouette_scores, marker='o', color='green')
 ax2.set(title='Silhouette Scores', xlabel='Clusters', ylabel='Score')
 plt.tight_layout()
+plt.savefig('elbow_and_silhouette_scores.png')
 plt.show()
 plt.close()  # Explicitly close the figure
 
@@ -65,6 +66,7 @@ plt.figure(figsize=(10, 6))
 sns.scatterplot(x='PC1', y='PC2', hue='Cluster', data=df,
                 palette='viridis', alpha=0.8, edgecolor='k')
 plt.title('2D Cluster Visualization (PCA)')
+plt.savefig('2D_Cluster_Visualization_PCA.png')
 plt.show()
 plt.close()  # Explicitly close the figure
 
@@ -77,6 +79,7 @@ for cluster in range(best_k):
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.title(f'Cluster {cluster} Keywords', fontsize=12)
     plt.axis('off')
+    plt.savefig(f'Cluster_{cluster}_Keywords.png')
     plt.show()
     plt.close(fig)  # Explicitly close each word cloud figure
 
