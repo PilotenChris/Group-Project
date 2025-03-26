@@ -11,9 +11,8 @@ Before running the project, ensure you have the following:
 ### Files
 Make sure the following files are in the same directory:
 - `sentimentdataset.csv`
-- `project.py` *(Preprocessing, sentiment analysis, model training)*
+- `project.py` *(Preprocessing, sentiment analysis, model training, model performance comparison)*
 - `clustering.py` *(Topic clustering & visualization)*
-- `dashboard.py` *(Model performance comparison)*
 - `bert_sentiment_model` *(Our Pretrained BERT model - delete or rename if you want to retrain the BERT model)*
 
 ### Python Packages
@@ -61,16 +60,13 @@ You may safely ignore any red warnings displayed in the terminal while running t
    - This script cleans the dataset and trains both **Logistic Regression** and **BERT** on the sentiment data.
    - It may take several minutes to hours depending on your hardware.
    - If you want to **train a new BERT model**, delete the `bert_sentiment_model` directory before running the script.
+   - Displays **accuracy metrics** of **Logistic Regression vs. BERT**.
+   - Provides a **visual comparison of model performances**.
 
 ### Step 2: Clustering Analysis
 2. Run `clustering.py`:
     - Performs **K-Means clustering** on the dataset.
     - Generates **PCA visualization** and **word clouds** for topic analysis.
-
-### Step 3: Model Performance Evaluation
-3. Run `dashboard.py`:
-    - Displays **accuracy metrics** of **Logistic Regression vs. BERT**.
-    - Provides a **visual comparison of model performances**.
 
 ---
 
